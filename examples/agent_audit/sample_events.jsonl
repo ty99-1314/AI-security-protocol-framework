@@ -1,0 +1,4 @@
+{"timestamp":"2026-11-07T10:00:00Z","agent_id":"support-bot-7","role":"support","action":"read","resource":"ticket","outcome":"allowed"}
+{"timestamp":"2026-11-07T10:00:05Z","agent_id":"support-bot-7","role":"support","action":"export","resource":"customer_records","destination":"external","approved":false,"outcome":"denied"}
+{"timestamp":"2026-11-07T10:00:10Z","agent_id":"support-bot-7","role":"support","action":"delete","resource":"ticket","approved":false,"outcome":"denied"}
+{"timestamp":"2026-11-07T10:00:15Z","agent_id":"support-bot-7","role":"support","action":"send_payment","resource":"invoice","approved":false,"outcome":"denied"}
