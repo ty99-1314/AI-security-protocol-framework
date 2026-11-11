@@ -1,40 +1,38 @@
-# AI-security-protocol-framework
-security protocol framework of an agent:
- 
-1. Authentication and Authorization
- 
-- Identity Verification: Agents need to verify their identities when interacting with other agents, systems, or resources. This can be achieved through methods like digital certificates, passwords, or biometric authentication (in the case of agents with more advanced interfaces). For example, an agent trying to access a database must present a valid digital certificate issued by a trusted certificate authority to prove its identity.
- 
-- Role - Based Authorization: Once an agent's identity is established, its access rights are determined based on its role. A monitoring agent might have read - only access to certain data, while an administrative agent could have the ability to modify or delete data.
- 
-2. Communication Security
- 
-- Encryption: All communication between agents should be encrypted to protect the confidentiality of the information being transmitted. Common encryption algorithms like AES (Advanced Encryption Standard) can be used to encrypt messages. For instance, when an agent sends a sensitive instruction to another agent, the message is encrypted at the sender's end and decrypted only at the recipient's end.
- 
-- Integrity Protection: To ensure that the messages are not tampered with during transmission, cryptographic hashing functions can be used. The sender attaches a hash value of the message to the transmission, and the recipient recalculates the hash value upon receipt and compares it with the received hash to verify the integrity of the message.
- 
-3. Behavioral Constraints
- 
-- Policy Enforcement: Agents should operate within a set of predefined security policies. These policies can govern actions such as data access, resource usage, and interaction with other agents. For example, an agent may be prohibited from sharing certain types of data with external agents without proper authorization.
- 
-- Anomaly Detection: Implement mechanisms to detect abnormal behavior of agents. This can involve monitoring an agent's actions, resource consumption, and communication patterns. If an agent suddenly starts making a large number of unauthorized requests, an alert can be triggered, and appropriate actions can be taken, such as suspending the agent.
- 
-4. Data Security
- 
-- Data Confidentiality: Protect the confidentiality of data stored within agents or accessed by them. This includes encrypting data at rest, for example, in an agent's local storage.
- 
-- Data Integrity: Ensure that the data used by agents remains accurate and uncorrupted. Regular data validation checks can be performed to maintain data integrity.
- 
-5. Audit and Logging
- 
-- Activity Logging: Keep detailed logs of all agent activities, including authentication attempts, access to resources, and communication. These logs can be used for auditing purposes, to track the history of an agent's actions, and to detect security breaches.
- 
-- Security Auditing: Periodically conduct security audits to assess the effectiveness of the security protocol framework. This can involve reviewing logs, testing security controls, and evaluating compliance with security policies.
- 
-6. Upgradability and Adaptability
- 
-- Dynamic Updates: The security protocol framework should support dynamic updates to adapt to new security threats and requirements. Agents should be able to receive and apply security patches and updates without significant disruption to their operations.
- 
-- Flexibility: It should be flexible enough to accommodate different types of agents and their specific security needs, whether they are simple software agents or more complex intelligent agents operating in a distributed environment.
- 
-This framework provides a comprehensive set of security measures to protect agents and the systems they operate in. However, the specific implementation may vary depending on the nature and requirements of the agents and the application scenarios.
+# AI Security Protocol Framework
+
+一个面向 Agent 开发框架的安全控制与审计层。项目长期方向是与 Agent 框架协同工作，在模型调用、工具执行、数据访问和结果返回等边界实施可配置的策略检查，并提供可追溯的安全事件。
+
+本项目不替代 LangChain、LangGraph、CrewAI 或其他 Agent 编排框架，也不声称能够控制模型内部推理。所谓“管控大模型”，指管控 Agent 应用与模型、工具、数据和外部服务之间的交互边界。
+
+## 项目方向
+
+安全层通过框架适配器融入 Agent 生命周期：
+
+1. 模型调用前：检查主体和策略上下文，按配置限制/脱敏进入模型的数据。
+2. 模型响应后：校验结构化响应；模型生成的工具调用只视作提议，不视作授权。
+3. 工具执行前：检查身份、工具、动作、资源、参数和审批；在副作用发生前返回允许、拒绝、需审批、转换或升级决策。
+4. 工具返回后：检查结果、最小化敏感数据，并决定是否允许进入下一轮模型上下文或返回用户。
+5. 全程记录结构化事件，关联请求、策略版本、决策和真实执行结果。
+
+工具执行前的可信控制点是运行时 MVP 的核心。仅分析 JSONL 的事后审计不能称为执行拦截。完整架构、模块边界、适配器合同、测试要求和路线图见 [`docs/AGENT_RUNTIME_SECURITY_ARCHITECTURE.md`](docs/AGENT_RUNTIME_SECURITY_ARCHITECTURE.md)。安全审计需求清单见 [`docs/SECURITY_AUDIT_CHECKLIST.md`](docs/SECURITY_AUDIT_CHECKLIST.md)。
+
+## 当前代码状态
+
+仓库目前包含 Agent 工具调用事件的 JSONL 审计示例及早期 Python 包结构。现有审计逻辑主要用于事后检查越权动作、缺少审批、外部导出和短时间内重复遭拒等信号；它本身不拦截工具调用，也不能证明事件未被伪造或日志未被篡改。
+
+框架适配器、运行时工具拦截、模型输入/输出检查和统一决策 API 属于后续路线，不能视为当前已经实现的能力。实际接入和发布前应验证 package 模块、测试、安装流程及适配器覆盖范围。
+
+## 设计原则
+
+- 核心策略和审计模块保持框架无关；框架 SDK 放入可选适配器。
+- 安全决定与实际执行状态分开记录。
+- 对工具调用拒绝必须发生在工具副作用之前。
+- 未知/无策略情况按明确、安全的默认行为处理；运行时强制模式不得静默失败放行。
+- 身份、审批和目的地等安全上下文必须来自可信来源，不能只依赖模型输出或请求自报字段。
+- 每个控制都有证据、测试和清晰的能力边界。
+
+## 开发方向
+
+当前先收敛现有离线审计包和事件格式，然后实现框架无关的安全上下文、策略与决策模型，���选一个 Agent 框架做工具调用前置控制试点。后续根据实际需求逐步扩展模型请求/响应、数据边界和更多适配器，不在首版承诺支持所有框架或拦截所有风险。
+
+本项目采用 Apache License 2.0，详见 [LICENSE](LICENSE)。
