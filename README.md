@@ -1,38 +1,89 @@
 # AI Security Protocol Framework
 
-一个面向 Agent 开发框架的安全控制与审计层。项目长期方向是与 Agent 框架协同工作，在模型调用、工具执行、数据访问和结果返回等边界实施可配置的策略检查，并提供可追溯的安全事件。
+一个与 Agent 开发框架协同工作的安全控制与审计层。当前 MVP 提供框架无关的工具调用前置策略检查与 JSONL 事后审计。运行时控制只对经过 `SecurityRuntime.execute_tool(...)` 或正确集成的适配器调用生效；它不控制模型内部推理。
 
-本项目不替代 LangChain、LangGraph、CrewAI 或其他 Agent 编排框架，也不声称能够控制模型内部推理。所谓“管控大模型”，指管控 Agent 应用与模型、工具、数据和外部服务之间的交互边界。
+## 安装
 
-## 项目方向
+```bash
+python -m pip install .
+```
 
-安全层通过框架适配器融入 Agent 生命周期：
+开发模式：
 
-1. 模型调用前：检查主体和策略上下文，按配置限制/脱敏进入模型的数据。
-2. 模型响应后：校验结构化响应；模型生成的工具调用只视作提议，不视作授权。
-3. 工具执行前：检查身份、工具、动作、资源、参数和审批；在副作用发生前返回允许、拒绝、需审批、转换或升级决策。
-4. 工具返回后：检查结果、最小化敏感数据，并决定是否允许进入下一轮模型上下文或返回用户。
-5. 全程记录结构化事件，关联请求、策略版本、决策和真实执行结果。
+```bash
+python -m pip install -e .
+```
 
-工具执行前的可信控制点是运行时 MVP 的核心。仅分析 JSONL 的事后审计不能称为执行拦截。完整架构、模块边界、适配器合同、测试要求和路线图见 [`docs/AGENT_RUNTIME_SECURITY_ARCHITECTURE.md`](docs/AGENT_RUNTIME_SECURITY_ARCHITECTURE.md)。安全审计需求清单见 [`docs/SECURITY_AUDIT_CHECKLIST.md`](docs/SECURITY_AUDIT_CHECKLIST.md)。
+需要 Python 3.10 或更高版本。基础包只依赖 Python 标准库。
 
-## 当前代码状态
+## 工具调用安全运行时
 
-仓库目前包含 Agent 工具调用事件的 JSONL 审计示例及早期 Python 包结构。现有审计逻辑主要用于事后检查越权动作、缺少审批、外部导出和短时间内重复遭拒等信号；它本身不拦截工具调用，也不能证明事件未被伪造或日志未被篡改。
+策略默认拒绝所有未列出的工具操作。必须显式授权 `role/tool/action/resource` 组合，并由宿主框架提供可信身份上下文。
 
-框架适配器、运行时工具拦截、模型输入/输出检查和统一决策 API 属于后续路线，不能视为当前已经实现的能力。实际接入和发布前应验证 package 模块、测试、安装流程及适配器覆盖范围。
+```python
+from ai_security_protocol import (
+    PolicyEngine,
+    SecurityContext,
+    SecurityPolicy,
+    SecurityRuntime,
+    ToolCall,
+    ToolPermission,
+)
 
-## 设计原则
+policy = SecurityPolicy(
+    policy_id="support-agent",
+    version="1",
+    permissions=frozenset({
+        ToolPermission("support", "read_ticket", "read", "ticket:T-123"),
+    }),
+)
+runtime = SecurityRuntime(PolicyEngine(policy))
+context = SecurityContext(
+    principal_id="agent-7",
+    role="support",
+    trusted=True,  # 只能由可信宿主认证层设置，不能取自模型输出
+    request_id="request-123",
+)
+call = ToolCall(
+    tool_name="read_ticket",
+    action="read",
+    resource="ticket:T-123",
+    arguments={"ticket_id": "T-123"},
+)
 
-- 核心策略和审计模块保持框架无关；框架 SDK 放入可选适配器。
-- 安全决定与实际执行状态分开记录。
-- 对工具调用拒绝必须发生在工具副作用之前。
-- 未知/无策略情况按明确、安全的默认行为处理；运行时强制模式不得静默失败放行。
-- 身份、审批和目的地等安全上下文必须来自可信来源，不能只依赖模型输出或请求自报字段。
-- 每个控制都有证据、测试和清晰的能力边界。
+result = runtime.execute_tool(
+    call,
+    context,
+    lambda ticket_id: {"ticket_id": ticket_id, "status": "open"},
+)
+```
 
-## 开发方向
+不允许的调用会抛出 `SecurityDenied`，工具函数不会被执行。高风险动作可配置 `approval_required_actions`；审批必须由可信宿主提供 `ApprovalGrant`，并绑定主体、工具、动作、资源及参数摘要。不得把模型生成的 `approved=True` 当作审批证据。
 
-当前先收敛现有离线审计包和事件格式，然后实现框架无关的安全上下文、策略与决策模型，���选一个 Agent 框架做工具调用前置控制试点。后续根据实际需求逐步扩展模型请求/响应、数据边界和更多适配器，不在首版承诺支持所有框架或拦截所有风险。
+`event_sink` 可接收 `SecurityEvent`，记录策略决定、工具开始、完成或失败。日志后端的访问控制、防篡改与保留策略由集成应用负责配置。
 
-本项目采用 Apache License 2.0，详见 [LICENSE](LICENSE)。
+## 离线 JSONL 审计
+
+保留现有离线审计 CLI：
+
+```bash
+ai-security-audit examples/agent_audit/sample_events.jsonl
+# 或
+python -m ai_security_protocol examples/agent_audit/sample_events.jsonl
+```
+
+CLI 输出 JSON；退出码 `0` 表示无发现，`1` 表示有发现，`2` 表示输入错误。此功能分析已记录事件，不会拦截调用，也不能证明日志真实或不可篡改。
+
+## Agent 框架适配
+
+`adapters` 中定义了框架无关的适配器接口，但当前尚未交付 LangChain、LangGraph、CrewAI 等具体框架适配器。集成时必须将 guard 放在真实工具执行边界，证明拒绝决策发生在副作用之前。不要只在工具执行后写日志。
+
+## 当前能力边界
+
+此 MVP 可在本包运行时入口内对工具调用做确定性 allow/deny/approval 检查，并生成��件。它不提供身份认证、审批系统、模型输入/输出语义安全、数据加密、完整日志存储或框架 hook 的自动覆盖。`trusted=True` 是集成方的信任边界，生产环境必须只由可信认证中间件创建上下文。
+
+## 测试
+
+```bash
+python -m unittest discover -s tests -v
+```
