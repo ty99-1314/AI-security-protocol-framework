@@ -1,0 +1,29 @@
+name: starter-policy
+version: 0.1.0
+allowed_actions:
+  - role: support
+    action: read
+    resource: ticket
+    allowed: true
+  - role: support
+    action: reply
+    resource: ticket
+    allowed: true
+  - role: finance
+    action: read
+    resource: invoice
+    allowed: true
+  - role: finance
+    action: export
+    resource: invoice
+    allowed: true
+sensitive_actions: [delete, export, send_payment]
+require_approval_for: [delete, export, send_payment]
+external_destinations: [external, public, unknown]
+export_allowlist: [internal-warehouse]
+denied_burst_limit: 3
+denied_burst_window_seconds: 60
+require_logging: true
+require_traceability: true
+sensitive_data_patterns:
+  - '\b\d{3}-\d{2}-\d{4}\b'

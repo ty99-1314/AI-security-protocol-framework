@@ -1,0 +1,5 @@
+{"event_id":"evt-001","timestamp":"2026-11-13T10:00:00Z","event_type":"tool_call","agent_id":"support-bot-7","role":"support","action":"read","resource":"ticket","outcome":"allowed","approved":true,"logged":true,"trace_id":"trace-001"}
+{"event_id":"evt-002","timestamp":"2026-11-13T10:00:05Z","event_type":"tool_call","agent_id":"support-bot-7","role":"support","action":"export","resource":"customer_records","destination":"external","outcome":"denied","approved":false,"logged":true,"trace_id":"trace-002"}
+{"event_id":"evt-003","timestamp":"2026-11-13T10:00:10Z","event_type":"tool_call","agent_id":"support-bot-7","role":"support","action":"delete","resource":"ticket","outcome":"denied","approved":false,"logged":true,"trace_id":"trace-003"}
+{"event_id":"evt-004","timestamp":"2026-11-13T10:00:15Z","event_type":"network","agent_id":"support-bot-7","encrypted":false,"integrity_valid":false,"authenticated":false,"logged":true,"trace_id":"trace-004"}
+{"event_id":"evt-005","timestamp":"2026-11-13T10:00:20Z","event_type":"policy_change","agent_id":"admin-1","approved":false,"patch_current":false,"logged":true}
